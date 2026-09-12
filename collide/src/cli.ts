@@ -6,6 +6,7 @@ import { parseLockfile } from "./core/lockfile";
 import { isGoManifest, parseGoManifest } from "./core/go-manifest";
 import { isPipManifest, parsePipManifest } from "./core/pip-manifest";
 import { isCargoManifest, parseCargoManifest } from "./core/cargo-manifest";
+import { isComposerManifest, parseComposerManifest } from "./core/composer-manifest";
 import { runScans } from "./core/scanner";
 import { printProfiles, printReport } from "./report/format";
 import type { NamedProfile } from "./report/format";
@@ -13,7 +14,7 @@ import { c, sym } from "./report/ui";
 import { getOrCache } from "./cache/db";
 import { extractPackageProfile } from "./scanners/shared-ast-extractor";
 
-import { osvScanner, goOsvScanner, pyOsvScanner, rustOsvScanner } from "./scanners/osv";
+import { osvScanner, goOsvScanner, pyOsvScanner, rustOsvScanner, phpOsvScanner } from "./scanners/osv";
 import { globalStateScanner } from "./scanners/global-state";
 import { eventListenerScanner } from "./scanners/event-listeners";
 import { versionConflictScanner } from "./scanners/version-conflict";
@@ -21,6 +22,7 @@ import { goVersionConflictScanner } from "./scanners/go-version-conflict";
 import { goGlobalStateScanner, goEventListenerScanner } from "./scanners/go-collision";
 import { pyGlobalStateScanner, pyHooksScanner } from "./scanners/py-collision";
 import { rustGlobalStateScanner, rustHooksScanner } from "./scanners/rust-collision";
+import { phpGlobalStateScanner, phpHooksScanner } from "./scanners/php-collision";
 
 // npm registry — adding a 5th scanner = one import + one line here.
 const npmScanners: Scanner[] = [
@@ -66,8 +68,24 @@ const rustScanners: Scanner[] = [
   versionConflictScanner,
 ];
 
+// PHP (Composer) registry. osv + version-conflict work off the manifest alone
+// (version-conflict is language-agnostic and reused from npm); global-state and
+// event-listeners read vendor source, which Composer co-locates beside the
+// lockfile at vendor/<vendor>/<package>/ (heuristic scan — see
+// php-profile-extractor). Root-namespace function redeclarations (a PHP fatal
+// error), define()/ini_set()/$GLOBALS writes, and set-once hooks (error/exception
+// handlers, shutdown functions, autoloaders, pcntl signals) are flagged.
+// Packages absent from vendor/ degrade to osv + version-conflict. See
+// docs/ecosystems/php-composer.md.
+const phpScanners: Scanner[] = [
+  phpOsvScanner,
+  phpGlobalStateScanner,
+  phpHooksScanner,
+  versionConflictScanner,
+];
+
 interface Ecosystem {
-  name: "npm" | "go" | "python" | "rust";
+  name: "npm" | "go" | "python" | "rust" | "php";
   scanners: Scanner[];
   parse: (manifestPath: string) => ResolvedPackage[];
 }
@@ -82,6 +100,9 @@ function resolveEcosystem(manifestPath: string): Ecosystem {
   }
   if (isCargoManifest(manifestPath)) {
     return { name: "rust", scanners: rustScanners, parse: parseCargoManifest };
+  }
+  if (isComposerManifest(manifestPath)) {
+    return { name: "php", scanners: phpScanners, parse: parseComposerManifest };
   }
   return { name: "npm", scanners: npmScanners, parse: parseLockfile };
 }
@@ -133,6 +154,15 @@ async function runProfile(args: Args): Promise<void> {
     );
     console.error(
       `  ${c.gray("Crate source lives in the cargo registry cache — use `scan` (osv + version-conflict).")}\n`,
+    );
+    process.exit(2);
+  }
+  if (isComposerManifest(args.lockfilePath)) {
+    console.error(
+      `\n  ${c.red(sym.cross)} ${c.bold("profile is not supported for PHP manifests.")}`,
+    );
+    console.error(
+      `  ${c.gray("Vendor source is scanned heuristically — use `scan` (osv + version-conflict + collision).")}\n`,
     );
     process.exit(2);
   }
