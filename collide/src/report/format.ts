@@ -1,23 +1,23 @@
-// report/format.ts
-// Render findings as a table or JSON.
-
 import type { Finding, OutputFormat } from "../core/types";
 
-export function printReport(findings: Finding[], format: OutputFormat): void {
+export function formatReport(findings: Finding[], format: OutputFormat): string {
   if (format === "json") {
-    console.log(JSON.stringify(findings, null, 2));
-    return;
+    return JSON.stringify(findings, null, 2);
   }
 
   if (findings.length === 0) {
-    console.log("No collisions found.");
-    return;
+    return "No collisions found.";
   }
 
-  // TODO: pretty table. Minimal version for now:
-  for (const f of findings) {
-    console.log(
-      `[${f.severity.toUpperCase()}] ${f.scanner}: ${f.target} — ${f.message}`,
-    );
-  }
+  return findings
+    .map(
+      (f) =>
+        `[${f.severity.toUpperCase()}] ${f.scanner}: ${f.target} — ${f.message}`,
+    )
+    .join("\n");
 }
+
+export function printReport(findings: Finding[], format: OutputFormat): void {
+  console.log(formatReport(findings, format));
+}
+
