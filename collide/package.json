@@ -60,7 +60,7 @@
     "@babel/parser": "^7.24.0",
     "@babel/traverse": "^7.24.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "better-sqlite3": "^11.0.0",
+    "better-sqlite3": "^13.0.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="src/images/logo.png" alt="Logo" />
+</p>
+
 # dep-collide
 
 Multi-ecosystem dependency-collision & vulnerability scanner. One core engine, pluggable scanner modules that all implement the same `Scanner` interface, across **npm, Go, Python, Rust, and PHP**. Ships as a **CLI** (`collide`) and an **MCP server** (`collide-mcp`) so Claude and other agents can call it as a tool.
