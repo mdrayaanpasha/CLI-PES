@@ -151,3 +151,6 @@ export const osvScanner: Scanner = createOsvScanner();
 
 // Go-ecosystem instance for Go module manifests.
 export const goOsvScanner: Scanner = createOsvScanner({ ecosystem: "Go" });
+
+// PyPI-ecosystem instance for Python (pip) manifests.
+export const pyOsvScanner: Scanner = createOsvScanner({ ecosystem: "PyPI" });

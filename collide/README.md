@@ -34,6 +34,27 @@ collide scan ./package-lock.json --only=osv,global-state  # subset
 collide scan ./package-lock.json --format=json            # agent/MCP consumption
 ```
 
+## Ecosystems
+
+The ecosystem is picked from the manifest filename; each maps to the same four
+scanner interface (osv · global-state · event-listeners · version-conflict).
+
+| Ecosystem | Manifests | Source scanners |
+|---|---|---|
+| npm | `package-lock.json` | AST walk over `node_modules` |
+| Go | `go.sum`, `go.mod` | heuristic scan of the module cache (`$GOMODCACHE`) |
+| Python | `requirements.txt`, `poetry.lock`, `Pipfile.lock` | heuristic scan of a venv's `site-packages` (when discoverable) |
+
+```bash
+collide scan ./go.sum                                     # Go modules
+collide scan ./requirements.txt                           # Python (pip / PyPI)
+```
+
+For Python, `osv` + `version-conflict` run off the manifest alone; the
+collision scanners (`global-state`, `event-listeners`) additionally read
+installed source when a `.venv`/`venv` sits beside the manifest. See
+[`docs/ecosystems/python-pip.md`](./docs/ecosystems/python-pip.md).
+
 ## Dev
 
 ```bash

@@ -1,0 +1,11 @@
+Django==2.2.0
+requests==2.19.1
+PyYAML==5.1
+Jinja2==2.10
+jinja2==3.0.0
+certifi==2023.7.22
+collide-alpha==1.0.0
+collide-beta==0.9.0
+# an unpinned row that must be skipped:
+flask>=2.0
+-e ./local-editable
