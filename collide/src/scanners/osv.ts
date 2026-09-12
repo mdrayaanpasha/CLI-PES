@@ -13,6 +13,8 @@ export interface OsvOptions {
   fetchImpl?: FetchLike;
   endpoint?: string;
   timeoutMs?: number;
+  /** OSV ecosystem string, e.g. "npm" or "Go". Defaults to "npm". */
+  ecosystem?: string;
   /** called with a human-readable warning when OSV is unreachable */
   onWarn?: (msg: string) => void;
 }
@@ -66,12 +68,13 @@ export function createOsvScanner(opts: OsvOptions = {}): Scanner {
   const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
   const endpoint = (opts.endpoint ?? DEFAULT_ENDPOINT).replace(/\/+$/, "");
   const timeoutMs = opts.timeoutMs ?? 15000;
+  const ecosystem = opts.ecosystem ?? "npm";
   const warn = opts.onWarn ?? ((m: string) => console.error(`[osv] ${m}`));
 
   async function batchQuery(pkgs: ResolvedPackage[]): Promise<(string[] | undefined)[]> {
     const body = {
       queries: pkgs.map((p) => ({
-        package: { name: p.name, ecosystem: "npm" },
+        package: { name: p.name, ecosystem },
         version: p.version,
       })),
     };
@@ -143,5 +146,8 @@ export function createOsvScanner(opts: OsvOptions = {}): Scanner {
   };
 }
 
-// Default instance used by the CLI registry.
+// Default instance used by the CLI registry (npm ecosystem).
 export const osvScanner: Scanner = createOsvScanner();
+
+// Go-ecosystem instance for Go module manifests.
+export const goOsvScanner: Scanner = createOsvScanner({ ecosystem: "Go" });

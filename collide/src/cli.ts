@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // cli.ts — entry point. Parses args, dispatches subcommands.
 
-import type { OutputFormat, Scanner } from "./core/types";
+import type { OutputFormat, ResolvedPackage, Scanner } from "./core/types";
 import { parseLockfile } from "./core/lockfile";
+import { isGoManifest, parseGoManifest } from "./core/go-manifest";
 import { runScans } from "./core/scanner";
 import { printProfiles, printReport } from "./report/format";
 import type { NamedProfile } from "./report/format";
@@ -10,18 +11,44 @@ import { c, sym } from "./report/ui";
 import { getOrCache } from "./cache/db";
 import { extractPackageProfile } from "./scanners/shared-ast-extractor";
 
-import { osvScanner } from "./scanners/osv";
+import { osvScanner, goOsvScanner } from "./scanners/osv";
 import { globalStateScanner } from "./scanners/global-state";
 import { eventListenerScanner } from "./scanners/event-listeners";
 import { versionConflictScanner } from "./scanners/version-conflict";
+import { goVersionConflictScanner } from "./scanners/go-version-conflict";
+import { goGlobalStateScanner, goEventListenerScanner } from "./scanners/go-collision";
 
-// Registry — adding a 5th scanner = one import + one line here.
-const allScanners: Scanner[] = [
+// npm registry — adding a 5th scanner = one import + one line here.
+const npmScanners: Scanner[] = [
   osvScanner,
   globalStateScanner,
   eventListenerScanner,
   versionConflictScanner,
 ];
+
+// Go registry. osv + version-conflict work off the manifest alone; global-state
+// and event-listeners read module source from the Go module cache (heuristic
+// scan — see go-profile-extractor). See docs/ecosystems/go-modules.md.
+const goScanners: Scanner[] = [
+  goOsvScanner,
+  goGlobalStateScanner,
+  goEventListenerScanner,
+  goVersionConflictScanner,
+];
+
+interface Ecosystem {
+  name: "npm" | "go";
+  scanners: Scanner[];
+  parse: (manifestPath: string) => ResolvedPackage[];
+}
+
+/** Pick the ecosystem (parser + scanner set) from the manifest filename. */
+function resolveEcosystem(manifestPath: string): Ecosystem {
+  if (isGoManifest(manifestPath)) {
+    return { name: "go", scanners: goScanners, parse: parseGoManifest };
+  }
+  return { name: "npm", scanners: npmScanners, parse: parseLockfile };
+}
 
 interface Args {
   command: string;
@@ -46,6 +73,15 @@ function parseArgs(argv: string[]): Args {
 
 /** Phase 1: per-package profiling — the `profile` subcommand. */
 async function runProfile(args: Args): Promise<void> {
+  if (isGoManifest(args.lockfilePath)) {
+    console.error(
+      `\n  ${c.red(sym.cross)} ${c.bold("profile is not supported for Go manifests.")}`,
+    );
+    console.error(
+      `  ${c.gray("Go source lives in the module cache — use `scan` (osv + version-conflict).")}\n`,
+    );
+    process.exit(2);
+  }
   const packages = parseLockfile(args.lockfilePath);
   const profiles: NamedProfile[] = await Promise.all(
     packages.map(async (pkg) => ({
@@ -58,10 +94,11 @@ async function runProfile(args: Args): Promise<void> {
 }
 
 async function runScan(args: Args): Promise<void> {
+  const ecosystem = resolveEcosystem(args.lockfilePath);
   const enabled = args.only
-    ? allScanners.filter((s) => args.only!.includes(s.name))
-    : allScanners;
-  const packages = parseLockfile(args.lockfilePath);
+    ? ecosystem.scanners.filter((s) => args.only!.includes(s.name))
+    : ecosystem.scanners;
+  const packages = ecosystem.parse(args.lockfilePath);
 
   const perScanner: Record<string, number> = {};
   const errored: string[] = [];
