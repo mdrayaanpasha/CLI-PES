@@ -157,3 +157,6 @@ export const pyOsvScanner: Scanner = createOsvScanner({ ecosystem: "PyPI" });
 
 // crates.io-ecosystem instance for Rust (Cargo) manifests.
 export const rustOsvScanner: Scanner = createOsvScanner({ ecosystem: "crates.io" });
+
+// Packagist-ecosystem instance for PHP (Composer) manifests.
+export const phpOsvScanner: Scanner = createOsvScanner({ ecosystem: "Packagist" });
