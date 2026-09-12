@@ -1,0 +1,37 @@
+name: Dependency scan (collide)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  collide:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Scan the lockfile. --fail-on=high makes the job fail when any
+      # finding is high severity. Use medium/low for a stricter gate.
+      # collide auto-detects the ecosystem from the manifest name
+      # (package-lock.json, go.sum, requirements.txt, Cargo.lock, composer.lock).
+      - name: Scan dependencies
+        run: npx --yes dep-collide@0.2.0 scan collide/package-lock.json --fail-on=high
+
+      # Optional: also emit a machine-readable report as a build artifact.
+      # Runs even if the gate above fails so you always get the report.
+      - name: Write JSON report
+        if: always()
+        run: npx --yes dep-collide@0.2.0 scan collide/package-lock.json --format=json > collide-report.json || true
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collide-report
+          path: collide-report.json

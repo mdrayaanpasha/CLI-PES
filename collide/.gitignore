@@ -9,3 +9,4 @@ test/.vuln-lab/
 test/.composer-lab/
 test/.composer-real-lab/
 *-cache.db
+.npmrc

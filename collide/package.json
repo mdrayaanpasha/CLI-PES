@@ -1,6 +1,6 @@
 {
   "name": "dep-collide",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Multi-ecosystem dependency-collision & vulnerability scanner (npm, Go, Python, Rust, PHP) — CLI + MCP server.",
   "type": "module",
   "bin": {
@@ -61,6 +61,7 @@
     "@babel/traverse": "^7.24.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "better-sqlite3": "^11.0.0",
+    "dep-collide": "^0.1.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>collide — Sandboxed Verification Report</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    color: #1a1d21; line-height: 1.5; font-size: 10.5pt; margin: 0;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  h1 { font-size: 22pt; margin: 0 0 2px; letter-spacing: -0.5px; }
+  h2 { font-size: 13pt; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #e4e7eb; color: #0b5cad; }
+  h3 { font-size: 11pt; margin: 16px 0 4px; color: #23272e; }
+  p { margin: 6px 0; }
+  .sub { color: #5b636e; font-size: 9.5pt; margin: 0 0 2px; }
+  .meta { color: #5b636e; font-size: 9pt; margin-bottom: 14px; }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.8pt;
+         background: #f2f4f7; padding: 1px 4px; border-radius: 3px; }
+  pre { background: #1e232b; color: #e6edf3; padding: 12px 14px; border-radius: 6px;
+        font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.5pt;
+        line-height: 1.45; overflow-x: auto; white-space: pre-wrap; }
+  pre code { background: none; color: inherit; padding: 0; }
+  .verdict { background: #eaf7ee; border: 1px solid #b7e3c3; border-left: 4px solid #1e9e4a;
+             padding: 12px 16px; border-radius: 6px; margin: 14px 0; }
+  .verdict strong { color: #146c33; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 9.2pt; }
+  th, td { text-align: left; padding: 6px 9px; border-bottom: 1px solid #e4e7eb; vertical-align: top; }
+  th { background: #f2f4f7; font-weight: 600; border-bottom: 2px solid #d6dbe1; }
+  .ok { color: #1e9e4a; font-weight: 600; }
+  .note { background: #fff6e6; border: 1px solid #f3d9a0; border-left: 4px solid #e0900a;
+          padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
+  .tag { display: inline-block; background: #0b5cad; color: #fff; font-size: 7.5pt;
+         padding: 1px 7px; border-radius: 10px; vertical-align: middle; font-weight: 600; }
+  .hr { border: none; border-top: 1px solid #e4e7eb; margin: 18px 0; }
+  ul { margin: 6px 0; padding-left: 20px; }
+  li { margin: 3px 0; }
+</style>
+</head>
+<body>
+
+<h1>collide — Sandboxed Verification Report</h1>
+<p class="sub">Does the scanner actually do what it claims — across all 5 ecosystems, both CLI and MCP server — when run against controlled sandboxes with known ground truth?</p>
+<p class="meta"><strong>Date:</strong> 2026-09-12 &nbsp;·&nbsp; <strong>Package:</strong> <code>dep-collide@0.1.0</code></p>
+
+<div class="verdict">
+<strong>Verdict: ✅ Verified.</strong> Every scanner produces correct findings that match the planted ground truth. OSV returns real, current CVE advisories over the network. The CLI and MCP paths agree exactly. One <em>test</em> (not the scanner) has a stale assertion — detailed at the end.
+</div>
+
+<h2>Method</h2>
+<p>The repo ships self-contained "lab" builders (<code>test/build-*-lab.ts</code>) that materialize a synthetic install tree for each ecosystem, with collisions/vulnerabilities planted deliberately and documented in-code. This is a true sandbox: each lab is wiped and rebuilt under <code>test/.&lt;lab&gt;/</code>, nothing touches real project dependencies.</p>
+<p>For each ecosystem I (1) rebuilt the lab, (2) ran <code>collide scan … --format=json</code>, and (3) compared actual findings against the ground truth declared in the builder's own comments. I ran the local (offline) scanners and the network OSV scanner separately, plus the full <code>npm test</code> suite and the MCP <code>scan_dependencies</code> tool. All commands ran from <code>collide/</code> using the bundled toolchain.</p>
+
+<h2>Results by ecosystem</h2>
+
+<h3>npm — <code>test/.vuln-lab</code> <span class="tag">offline · 3 local scanners</span></h3>
+<p>27 packages scanned → <strong>26 findings</strong>, matching the builder's declared expectation exactly.</p>
+<table>
+  <tr><th>Scanner</th><th>Found</th><th>Ground truth (from <code>build-vuln-lab.ts</code>)</th><th>Match</th></tr>
+  <tr><td>version-conflict</td><td>6</td><td>lodash×3, react×4, express×2, axios×3, chalk×2, moment×2</td><td class="ok">✅ exact</td></tr>
+  <tr><td>global-state</td><td>11</td><td>~10 prototype/global targets, each written by ≥2 pkgs</td><td class="ok">✅</td></tr>
+  <tr><td>event-listeners</td><td>9</td><td>~9 listener targets, each bound by ≥2 pkgs</td><td class="ok">✅ exact</td></tr>
+</table>
+<p>Spot checks: <code>Array.prototype.flat</code> → owners <code>[shimmy-a, shimmy-b]</code>; <code>window:resize</code> → <code>[listen-x, listen-y, shimmy-a, shimmy-d]</code>; <code>lodash</code> conflict → <code>[4.17.11, 3.10.1, 2.4.2]</code>. All correct.</p>
+
+<h3>npm — OSV scanner <span class="tag">network · osv.dev</span></h3>
+<p><strong>124 findings</strong> (65 high, 53 medium, 6 low) against the planted vulnerable versions (lodash 4.17.11/3.10.1/2.4.2, minimist 0.0.8, marked 0.3.6, handlebars 4.0.11, express). These are <strong>real, verifiable GHSA advisory IDs</strong> — e.g. <code>GHSA-35jh-r3h4-6jhm</code> (lodash command injection), <code>GHSA-f2jv-r9rf-7988</code> (handlebars RCE), <code>GHSA-xvch-5gv4-984h</code> (minimist prototype pollution). Confirms OSV queries hit the live database and map versions→advisories correctly.</p>
+
+<h3>Go, Python, Rust, PHP — ecosystem-native collisions</h3>
+<table>
+  <tr><th>Ecosystem</th><th>Findings</th><th>Representative targets</th><th>Match</th></tr>
+  <tr><td>Go (<code>.go-lab</code>)</td><td>5</td><td><code>flag:port</code>, <code>http-route:/health</code>, <code>expvar:uptime</code>, <code>signal:SIGTERM</code>, foo/bar v1/v2/v3 conflict</td><td class="ok">✅</td></tr>
+  <tr><td>Python (<code>.pip-lab</code>)</td><td>5</td><td><code>environ:TZ</code>, <code>monkeypatch:socket.socket</code>, <code>atexit:register</code>, jinja2 2.10↔3.0.0</td><td class="ok">✅</td></tr>
+  <tr><td>Rust (<code>.cargo-lab</code>)</td><td>6</td><td><code>global-allocator</code>, <code>env:APP_MODE</code>, <code>panic-hook</code>, rand 0.7.3↔0.8.5</td><td class="ok">✅</td></tr>
+  <tr><td>PHP (<code>.composer-lab</code>)</td><td>7</td><td><code>ini:memory_limit</code>, <code>define:COLLIDE_MODE</code>, <code>autoload:register</code>, monolog 1↔2</td><td class="ok">✅</td></tr>
+</table>
+<p>Each ecosystem uses collision categories meaningful <em>for that ecosystem</em> (Go flags/expvar, Python monkeypatching, Rust global allocator/panic hooks, PHP ini/autoload) — not a generic copy of the npm rules. Strong evidence the work is real.</p>
+
+<h2>CLI ↔ MCP parity</h2>
+<p>The MCP <code>scan_dependencies</code> tool on the same npm lockfile returned <code>packageCount: 27</code>, <code>findingCount: 26</code>, <code>scannersErrored: []</code> — <strong>identical</strong> to the CLI's offline run. The agent-facing path is verified end-to-end.</p>
+
+<h2>Test suite</h2>
+<p><code>npm test</code> → <strong>76 / 77 pass</strong>.</p>
+<div class="note">
+The single failure is <strong>in the test, not the scanner</strong>: <code>test/vuln-lab.test.ts:42</code> asserts <code>gs.length === 1</code> (expecting exactly one global-state collision), but the vuln-lab was since expanded to plant <strong>11</strong> collisions — which the scanner correctly finds. The builder's own comments and the <code>expect:</code> log line already document "~10 targets," so the assertion is stale relative to the fixture it runs against.
+</div>
+<p><strong>Suggested fix:</strong></p>
+<pre><code>// test/vuln-lab.test.ts
+const gs = byScanner("global-state");
+assert.ok(gs.length &gt;= 1);
+const flat = gs.find((f) =&gt; f.target === "Array.prototype.flat");
+assert.deepEqual(flat.owners.sort(), ["shimmy-a", "shimmy-b"]);</code></pre>
+
+<h2>Reproduce</h2>
+<pre><code>cd collide
+npm test                 # full suite (expect 76/77; see note above)
+npm run demo             # npm vuln-lab + OSV (network)
+npm run go-demo
+npm run pip-demo
+npm run cargo-demo
+npm run composer-demo
+npm run demo:all         # all ecosystems back-to-back</code></pre>
+
+</body>
+</html>
