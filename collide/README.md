@@ -1,8 +1,19 @@
-# collide
+# dep-collide
 
-Dependency-collision scanner for npm projects. One CLI, one core engine, 4 pluggable scanner modules that all implement the same `Scanner` interface.
+Multi-ecosystem dependency-collision & vulnerability scanner. One core engine, pluggable scanner modules that all implement the same `Scanner` interface, across **npm, Go, Python, Rust, and PHP**. Ships as a **CLI** (`collide`) and an **MCP server** (`collide-mcp`) so Claude and other agents can call it as a tool.
 
 See [`../design.md`](../design.md) for the full design.
+
+## Install
+
+```bash
+npx -p dep-collide collide scan ./package-lock.json    # run without installing
+npm install -g dep-collide                              # or install the `collide` binary globally
+collide scan ./package-lock.json                        # …then just `collide`
+```
+
+Requires Node.js ≥ 18. The package installs two binaries: `collide` (the CLI)
+and `collide-mcp` (the MCP server).
 
 ## Structure
 
@@ -44,16 +55,46 @@ scanner interface (osv · global-state · event-listeners · version-conflict).
 | npm | `package-lock.json` | AST walk over `node_modules` |
 | Go | `go.sum`, `go.mod` | heuristic scan of the module cache (`$GOMODCACHE`) |
 | Python | `requirements.txt`, `poetry.lock`, `Pipfile.lock` | heuristic scan of a venv's `site-packages` (when discoverable) |
+| Rust | `Cargo.lock` | heuristic scan of the cargo registry cache (`~/.cargo/registry/src`, or `$COLLIDE_CARGO_SRC`) |
+| PHP | `composer.lock` | heuristic scan of `vendor/<vendor>/<package>/` beside the lockfile |
 
 ```bash
 collide scan ./go.sum                                     # Go modules
 collide scan ./requirements.txt                           # Python (pip / PyPI)
+collide scan ./Cargo.lock                                 # Rust (Cargo / crates.io)
+collide scan ./composer.lock                              # PHP (Composer / Packagist)
 ```
 
 For Python, `osv` + `version-conflict` run off the manifest alone; the
 collision scanners (`global-state`, `event-listeners`) additionally read
 installed source when a `.venv`/`venv` sits beside the manifest. See
 [`docs/ecosystems/python-pip.md`](./docs/ecosystems/python-pip.md).
+
+## Use with Claude (MCP)
+
+`dep-collide` ships an MCP server that exposes a single `scan_dependencies` tool.
+Add it to your MCP client config (Claude Desktop, Claude Code, etc.):
+
+```json
+{
+  "mcpServers": {
+    "collide": {
+      "command": "npx",
+      "args": ["-y", "-p", "dep-collide", "collide-mcp"]
+    }
+  }
+}
+```
+
+Or, with Claude Code:
+
+```bash
+claude mcp add collide -- npx -y -p dep-collide collide-mcp
+```
+
+Then ask Claude to "scan my dependencies at ./package-lock.json" — it calls the
+tool and gets structured findings (ecosystem, package count, severity counts,
+and every finding) back as JSON.
 
 ## Dev
 
