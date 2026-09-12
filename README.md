@@ -2,17 +2,15 @@
   <img src="collide/src/images/logo.png" alt="Logo" />
 </p>
 
-# dep-collide
+# collide
 
 Multi-ecosystem dependency-collision & vulnerability scanner. One core engine, pluggable scanner modules that all implement the same `Scanner` interface, across **npm, Go, Python, Rust, and PHP**. Ships as a **CLI** (`collide`) and an **MCP server** (`collide-mcp`) so Claude and other agents can call it as a tool.
-
-See [`../design.md`](../design.md) for the full design.
 
 ## Install
 
 ```bash
-npx -p dep-collide collide scan ./package-lock.json    # run without installing
-npm install -g dep-collide                              # or install the `collide` binary globally
+npx -p collide collide scan ./package-lock.json    # run without installing
+npm install -g collide                              # or install the `collide` binary globally
 collide scan ./package-lock.json                        # …then just `collide`
 ```
 
