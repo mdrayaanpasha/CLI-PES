@@ -1,8 +1,8 @@
 // scanners/util.ts
 // Small grouping helpers shared by scanners.
 
-import type { ResolvedPackage } from "../core/types";
-import type { PackageProfile } from "./shared-ast-extractor";
+import type { ResolvedPackage } from "../core/types.js";
+import type { PackageProfile } from "./shared-ast-extractor.js";
 
 export function groupBy<T>(
   items: T[],

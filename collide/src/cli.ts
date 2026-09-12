@@ -3,15 +3,15 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { OutputFormat, Scanner } from "./core/types";
-import { parseLockfile } from "./core/lockfile";
-import { runScans } from "./core/scanner";
-import { printReport } from "./report/format";
+import type { OutputFormat, Scanner } from "./core/types.js";
+import { parseLockfile } from "./core/lockfile.js";
+import { runScans } from "./core/scanner.js";
+import { printReport } from "./report/format.js";
 
-import { osvScanner } from "./scanners/osv";
-import { globalStateScanner } from "./scanners/global-state";
-import { eventListenerScanner } from "./scanners/event-listeners";
-import { versionConflictScanner } from "./scanners/version-conflict";
+import { osvScanner } from "./scanners/osv.js";
+import { globalStateScanner } from "./scanners/global-state.js";
+import { eventListenerScanner } from "./scanners/event-listeners.js";
+import { versionConflictScanner } from "./scanners/version-conflict.js";
 
 // Registry — adding a 5th scanner = one import + one line here.
 export const allScanners: Scanner[] = [

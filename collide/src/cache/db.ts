@@ -3,8 +3,8 @@
 
 import * as fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import type { ResolvedPackage } from "../core/types";
-import type { PackageProfile } from "../scanners/shared-ast-extractor";
+import type { ResolvedPackage } from "../core/types.js";
+import type { PackageProfile } from "../scanners/shared-ast-extractor.js";
 
 let dbInstance: DatabaseSync | null = null;
 let currentDbLocation = process.env.COLLIDE_CACHE_DB || ":memory:";

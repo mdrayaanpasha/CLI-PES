@@ -1,4 +1,4 @@
-import type { Finding, OutputFormat } from "../core/types";
+import type { Finding, OutputFormat } from "../core/types.js";
 
 export function formatReport(findings: Finding[], format: OutputFormat): string {
   if (format === "json") {

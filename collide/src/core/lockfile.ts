@@ -3,7 +3,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { ResolvedPackage } from "./types";
+import type { ResolvedPackage } from "./types.js";
 
 /**
  * Resolves the primary JS/TS entry point for a package directory.

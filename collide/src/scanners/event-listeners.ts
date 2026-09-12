@@ -1,14 +1,14 @@
 // scanners/event-listeners.ts
 // Scan 3: same profiles as global-state, different bucket (listeners).
 
-import type { Finding, ResolvedPackage, Scanner, Severity } from "../core/types";
-import { getOrCache } from "../cache/db";
+import type { Finding, ResolvedPackage, Scanner, Severity } from "../core/types.js";
+import { getOrCache } from "../cache/db.js";
 import {
   extractPackageProfile,
   ListenerRegistration,
   PackageProfile,
-} from "./shared-ast-extractor";
-import { groupByTarget } from "./util";
+} from "./shared-ast-extractor.js";
+import { groupByTarget } from "./util.js";
 
 /**
  * Canonicalizes a ListenerRegistration into a single deterministic collision key.

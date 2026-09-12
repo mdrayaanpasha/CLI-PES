@@ -1,7 +1,7 @@
 // scanners/osv.ts
 // Scan 1: network call to the OSV database — no AST.
 
-import type { ResolvedPackage, Scanner, Severity } from "../core/types";
+import type { ResolvedPackage, Scanner, Severity } from "../core/types.js";
 
 interface OsvResult {
   package: string;

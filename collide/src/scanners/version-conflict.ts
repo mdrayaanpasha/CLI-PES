@@ -1,8 +1,8 @@
 // scanners/version-conflict.ts
 // Scan 4: pure lockfile-tree parsing — flag names resolved to 2+ versions.
 
-import type { Scanner } from "../core/types";
-import { groupBy } from "./util";
+import type { Scanner } from "../core/types.js";
+import { groupBy } from "./util.js";
 
 export const versionConflictScanner: Scanner = {
   name: "version-conflict",

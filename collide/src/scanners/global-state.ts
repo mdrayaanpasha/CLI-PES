@@ -1,10 +1,10 @@
 // scanners/global-state.ts
 // Scan 2: flag global/prototype write targets owned by 2+ packages.
 
-import type { Scanner } from "../core/types";
-import { getOrCache } from "../cache/db";
-import { extractPackageProfile } from "./shared-ast-extractor";
-import { groupByTarget } from "./util";
+import type { Scanner } from "../core/types.js";
+import { getOrCache } from "../cache/db.js";
+import { extractPackageProfile } from "./shared-ast-extractor.js";
+import { groupByTarget } from "./util.js";
 
 export const globalStateScanner: Scanner = {
   name: "global-state",
