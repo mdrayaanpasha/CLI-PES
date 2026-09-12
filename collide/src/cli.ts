@@ -5,6 +5,7 @@ import type { OutputFormat, ResolvedPackage, Scanner } from "./core/types";
 import { parseLockfile } from "./core/lockfile";
 import { isGoManifest, parseGoManifest } from "./core/go-manifest";
 import { isPipManifest, parsePipManifest } from "./core/pip-manifest";
+import { isCargoManifest, parseCargoManifest } from "./core/cargo-manifest";
 import { runScans } from "./core/scanner";
 import { printProfiles, printReport } from "./report/format";
 import type { NamedProfile } from "./report/format";
@@ -12,13 +13,14 @@ import { c, sym } from "./report/ui";
 import { getOrCache } from "./cache/db";
 import { extractPackageProfile } from "./scanners/shared-ast-extractor";
 
-import { osvScanner, goOsvScanner, pyOsvScanner } from "./scanners/osv";
+import { osvScanner, goOsvScanner, pyOsvScanner, rustOsvScanner } from "./scanners/osv";
 import { globalStateScanner } from "./scanners/global-state";
 import { eventListenerScanner } from "./scanners/event-listeners";
 import { versionConflictScanner } from "./scanners/version-conflict";
 import { goVersionConflictScanner } from "./scanners/go-version-conflict";
 import { goGlobalStateScanner, goEventListenerScanner } from "./scanners/go-collision";
 import { pyGlobalStateScanner, pyHooksScanner } from "./scanners/py-collision";
+import { rustGlobalStateScanner, rustHooksScanner } from "./scanners/rust-collision";
 
 // npm registry — adding a 5th scanner = one import + one line here.
 const npmScanners: Scanner[] = [
@@ -50,8 +52,22 @@ const pyScanners: Scanner[] = [
   versionConflictScanner,
 ];
 
+// Rust (Cargo) registry. osv + version-conflict work off the manifest alone
+// (version-conflict is language-agnostic and reused from npm); global-state and
+// event-listeners read crate source from the cargo registry cache
+// (~/.cargo/registry/src, or COLLIDE_CARGO_SRC) when a crate is unpacked there
+// — a heuristic scan flagging process-global resource sharing (global allocator,
+// env writes) and set-once hooks (logger, panic hook, signals). Crates not on
+// disk degrade to osv + version-conflict. See docs/ecosystems/rust-cargo.md.
+const rustScanners: Scanner[] = [
+  rustOsvScanner,
+  rustGlobalStateScanner,
+  rustHooksScanner,
+  versionConflictScanner,
+];
+
 interface Ecosystem {
-  name: "npm" | "go" | "python";
+  name: "npm" | "go" | "python" | "rust";
   scanners: Scanner[];
   parse: (manifestPath: string) => ResolvedPackage[];
 }
@@ -63,6 +79,9 @@ function resolveEcosystem(manifestPath: string): Ecosystem {
   }
   if (isPipManifest(manifestPath)) {
     return { name: "python", scanners: pyScanners, parse: parsePipManifest };
+  }
+  if (isCargoManifest(manifestPath)) {
+    return { name: "rust", scanners: rustScanners, parse: parseCargoManifest };
   }
   return { name: "npm", scanners: npmScanners, parse: parseLockfile };
 }
@@ -105,6 +124,15 @@ async function runProfile(args: Args): Promise<void> {
     );
     console.error(
       `  ${c.gray("Python source lives in site-packages — use `scan` (osv + version-conflict + collision).")}\n`,
+    );
+    process.exit(2);
+  }
+  if (isCargoManifest(args.lockfilePath)) {
+    console.error(
+      `\n  ${c.red(sym.cross)} ${c.bold("profile is not supported for Rust manifests.")}`,
+    );
+    console.error(
+      `  ${c.gray("Crate source lives in the cargo registry cache — use `scan` (osv + version-conflict).")}\n`,
     );
     process.exit(2);
   }
