@@ -1,0 +1,15 @@
+{
+  "name": "collide",
+  "description": "Dependency-collision & vulnerability scanning for Claude Code — the collide plugin (npm, Go, Python, Rust, PHP).",
+  "owner": {
+    "name": "Mohammed Rayaan Pasha",
+    "url": "https://github.com/mdrayaanpasha"
+  },
+  "plugins": [
+    {
+      "name": "collide",
+      "source": "./plugins/collide",
+      "description": "Dependency-collision & vulnerability scanner (npm, Go, Python, Rust, PHP) exposed to Claude as an MCP tool, plus a /collide:scan command."
+    }
+  ]
+}

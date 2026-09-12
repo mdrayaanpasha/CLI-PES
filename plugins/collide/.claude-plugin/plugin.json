@@ -1,0 +1,24 @@
+{
+  "name": "collide",
+  "version": "0.1.0",
+  "description": "Scan dependency manifests (npm, Go, Python, Rust, PHP) for known vulnerabilities, version conflicts, and cross-package collisions — via the dep-collide MCP server.",
+  "author": {
+    "name": "Mohammed Rayaan Pasha"
+  },
+  "homepage": "https://github.com/mdrayaanpasha/CLI-PES/tree/main/collide",
+  "repository": "https://github.com/mdrayaanpasha/CLI-PES",
+  "license": "MIT",
+  "keywords": [
+    "dependencies",
+    "security",
+    "vulnerability",
+    "osv",
+    "supply-chain"
+  ],
+  "mcpServers": {
+    "collide": {
+      "command": "npx",
+      "args": ["-y", "-p", "dep-collide", "collide-mcp"]
+    }
+  }
+}
