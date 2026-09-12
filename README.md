@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/images/logo.png" alt="Logo" />
+  <img src="collide/src/images/logo.png" alt="Logo" />
 </p>
 
 # dep-collide
