@@ -3,3 +3,7 @@ dist/
 *.log
 .cache/
 collide.db
+collide.db-*
+test/.sandbox/
+test/.vuln-lab/
+*-cache.db
