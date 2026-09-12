@@ -10,12 +10,21 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
-    "test": "echo \"no tests yet\" && exit 0"
+    "sandbox": "tsx test/build-sandbox.ts test/.sandbox",
+    "vuln-lab": "tsx test/build-vuln-lab.ts test/.vuln-lab",
+    "demo": "tsx test/build-vuln-lab.ts test/.vuln-lab && FORCE_COLOR=1 tsx src/cli.ts scan test/.vuln-lab/package-lock.json",
+    "test": "tsx --test test/*.test.ts"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@babel/parser": "^7.24.0",
+    "@babel/traverse": "^7.24.0",
+    "better-sqlite3": "^11.0.0"
+  },
   "devDependencies": {
     "tsx": "^4.0.0",
     "typescript": "^5.4.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "@types/babel__traverse": "^7.20.0",
+    "@types/better-sqlite3": "^7.6.0"
   }
 }

@@ -13,14 +13,33 @@ import type { Finding, ResolvedPackage, Scanner } from "./types";
 // 1. Pluggable Scanner Runner (Core Pipeline)
 // ============================================================================
 
+export interface ScanHooks {
+  onStart?: (scanner: string) => void;
+  onDone?: (scanner: string, count: number) => void;
+  onError?: (scanner: string, err: unknown) => void;
+}
+
 /**
  * The single merge point: run enabled scanners concurrently, flatten findings.
  */
 export async function runScans(
   packages: ResolvedPackage[],
   enabled: Scanner[],
+  hooks: ScanHooks = {},
 ): Promise<Finding[]> {
-  const results = await Promise.all(enabled.map((s) => s.scan(packages)));
+  const results = await Promise.all(
+    enabled.map(async (s) => {
+      hooks.onStart?.(s.name);
+      try {
+        const findings = await s.scan(packages);
+        hooks.onDone?.(s.name, findings.length);
+        return findings;
+      } catch (err) {
+        hooks.onError?.(s.name, err);
+        return [] as Finding[];
+      }
+    }),
+  );
   return results.flat();
 }
 
