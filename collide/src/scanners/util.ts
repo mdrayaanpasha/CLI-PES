@@ -1,0 +1,43 @@
+// scanners/util.ts
+// Small grouping helpers shared by scanners.
+
+import type { ResolvedPackage } from "../core/types";
+import type { PackageProfile } from "./shared-ast-extractor";
+
+export function groupBy<T>(
+  items: T[],
+  key: (item: T) => string,
+): Record<string, T[]> {
+  return items.reduce<Record<string, T[]>>((acc, item) => {
+    const k = key(item);
+    (acc[k] ??= []).push(item);
+    return acc;
+  }, {});
+}
+
+export interface TargetGroup {
+  target: string;
+  owners: string[]; // package names that touch this target
+}
+
+/**
+ * Invert profiles into groups keyed by target (a write or a listener),
+ * where `owners` is the set of packages touching that target.
+ */
+export function groupByTarget(
+  pkgs: ResolvedPackage[],
+  profiles: PackageProfile[],
+  bucket: keyof PackageProfile,
+): TargetGroup[] {
+  const map = new Map<string, Set<string>>();
+  profiles.forEach((profile, i) => {
+    const owner = pkgs[i].name;
+    for (const target of profile[bucket]) {
+      (map.get(target) ?? map.set(target, new Set()).get(target)!).add(owner);
+    }
+  });
+  return [...map.entries()].map(([target, owners]) => ({
+    target,
+    owners: [...owners],
+  }));
+}

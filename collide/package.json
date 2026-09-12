@@ -1,0 +1,21 @@
+{
+  "name": "collide",
+  "version": "0.1.0",
+  "description": "Dependency-collision scanner for npm projects — pluggable scanner modules over one core engine.",
+  "type": "module",
+  "bin": {
+    "collide": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "test": "echo \"no tests yet\" && exit 0"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  }
+}
