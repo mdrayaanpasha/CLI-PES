@@ -12,7 +12,9 @@
     "start": "node dist/cli.js",
     "sandbox": "tsx test/build-sandbox.ts test/.sandbox",
     "vuln-lab": "tsx test/build-vuln-lab.ts test/.vuln-lab",
+    "go-lab": "tsx test/build-go-lab.ts test/.go-lab",
     "demo": "tsx test/build-vuln-lab.ts test/.vuln-lab && FORCE_COLOR=1 tsx src/cli.ts scan test/.vuln-lab/package-lock.json",
+    "go-demo": "tsx test/build-go-lab.ts test/.go-lab && COLLIDE_GOMODCACHE=test/.go-lab/modcache FORCE_COLOR=1 tsx src/cli.ts scan test/.go-lab/go.sum",
     "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
