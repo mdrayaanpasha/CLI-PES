@@ -1,38 +1,75 @@
 {
-  "name": "collide",
+  "name": "dep-collide",
   "version": "0.1.0",
-  "description": "Dependency-collision scanner for npm projects — pluggable scanner modules over one core engine.",
+  "description": "Multi-ecosystem dependency-collision & vulnerability scanner (npm, Go, Python, Rust, PHP) — CLI + MCP server.",
   "type": "module",
   "bin": {
-    "collide": "dist/cli.js"
+    "collide": "dist/cli.js",
+    "collide-mcp": "dist/mcp.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "keywords": [
+    "dependencies",
+    "security",
+    "vulnerability",
+    "scanner",
+    "osv",
+    "supply-chain",
+    "npm",
+    "go",
+    "python",
+    "rust",
+    "php",
+    "mcp",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mdrayaanpasha/CLI-PES.git",
+    "directory": "collide"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsup",
     "dev": "tsx src/cli.ts",
+    "mcp": "tsx src/mcp.ts",
     "start": "node dist/cli.js",
+    "prepublishOnly": "npm run build",
     "sandbox": "tsx test/build-sandbox.ts test/.sandbox",
     "vuln-lab": "tsx test/build-vuln-lab.ts test/.vuln-lab",
     "go-lab": "tsx test/build-go-lab.ts test/.go-lab",
     "pip-lab": "tsx test/build-pip-lab.ts test/.pip-lab",
     "cargo-lab": "tsx test/build-cargo-lab.ts test/.cargo-lab",
     "composer-lab": "tsx test/build-composer-lab.ts test/.composer-lab",
-    "demo": "tsx test/build-vuln-lab.ts test/.vuln-lab && FORCE_COLOR=1 tsx src/cli.ts scan test/.vuln-lab/package-lock.json",
-    "go-demo": "tsx test/build-go-lab.ts test/.go-lab && COLLIDE_GOMODCACHE=test/.go-lab/modcache FORCE_COLOR=1 tsx src/cli.ts scan test/.go-lab/go.sum",
-    "pip-demo": "tsx test/build-pip-lab.ts test/.pip-lab && FORCE_COLOR=1 tsx src/cli.ts scan test/.pip-lab/requirements.txt",
-    "cargo-demo": "tsx test/build-cargo-lab.ts test/.cargo-lab && COLLIDE_CARGO_SRC=test/.cargo-lab/cargo-src FORCE_COLOR=1 tsx src/cli.ts scan test/.cargo-lab/Cargo.lock",
-    "composer-demo": "tsx test/build-composer-lab.ts test/.composer-lab && FORCE_COLOR=1 tsx src/cli.ts scan test/.composer-lab/composer.lock",
+    "demo": "tsx test/build-vuln-lab.ts test/.vuln-lab && cross-env FORCE_COLOR=1 tsx src/cli.ts scan test/.vuln-lab/package-lock.json",
+    "go-demo": "tsx test/build-go-lab.ts test/.go-lab && cross-env COLLIDE_GOMODCACHE=test/.go-lab/modcache FORCE_COLOR=1 tsx src/cli.ts scan test/.go-lab/go.sum",
+    "pip-demo": "tsx test/build-pip-lab.ts test/.pip-lab && cross-env FORCE_COLOR=1 tsx src/cli.ts scan test/.pip-lab/requirements.txt",
+    "cargo-demo": "tsx test/build-cargo-lab.ts test/.cargo-lab && cross-env COLLIDE_CARGO_SRC=test/.cargo-lab/cargo-src FORCE_COLOR=1 tsx src/cli.ts scan test/.cargo-lab/Cargo.lock",
+    "composer-demo": "tsx test/build-composer-lab.ts test/.composer-lab && cross-env FORCE_COLOR=1 tsx src/cli.ts scan test/.composer-lab/composer.lock",
+    "demo:all": "npm run demo && npm run go-demo && npm run pip-demo && npm run cargo-demo && npm run composer-demo",
     "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@babel/parser": "^7.24.0",
     "@babel/traverse": "^7.24.0",
-    "better-sqlite3": "^11.0.0"
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "better-sqlite3": "^11.0.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "tsx": "^4.0.0",
-    "typescript": "^5.4.0",
-    "@types/node": "^20.0.0",
     "@types/babel__traverse": "^7.20.0",
-    "@types/better-sqlite3": "^7.6.0"
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^20.0.0",
+    "cross-env": "^10.1.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
   }
 }
