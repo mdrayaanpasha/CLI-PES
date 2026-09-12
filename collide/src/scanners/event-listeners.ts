@@ -52,6 +52,64 @@ export function getCanonicalListenerKey(listener: ListenerRegistration): string 
 
 export const getListenerId = getCanonicalListenerKey;
 
+export const BENIGN_LIFECYCLE_TARGETS = new Set([
+  "global_document:DOMContentLoaded",
+  "global_window:DOMContentLoaded",
+  "global_document:load",
+  "global_window:load",
+  "global_document:readystatechange",
+  "global_window:readystatechange",
+]);
+
+/**
+ * Checks if a target represents a benign lifecycle listener excluded from collision reporting.
+ */
+export function isBenignLifecycleTarget(
+  canonicalTarget: string,
+  eventName?: string,
+): boolean {
+  if (BENIGN_LIFECYCLE_TARGETS.has(canonicalTarget)) {
+    return true;
+  }
+  if (
+    (canonicalTarget.startsWith("global_window:") ||
+      canonicalTarget.startsWith("global_document:")) &&
+    (eventName === "DOMContentLoaded" ||
+      eventName === "load" ||
+      eventName === "readystatechange")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Evaluates whether a listener registration is eligible for cross-package collision analysis.
+ * Filters out:
+ * - Local / non-global scopes (module, dom, unknown)
+ * - Dynamic / unknown event names ("<unknown>")
+ * - Benign lifecycle events (e.g. DOMContentLoaded, load, readystatechange)
+ */
+export function isEligibleCollisionListener(listener: ListenerRegistration): boolean {
+  // 1. Must be a shared global receiver scope (filters out local/module and dom elements)
+  if (listener.receiverScope !== "global") {
+    return false;
+  }
+
+  // 2. Must have a statically determinable, non-empty event name
+  if (!listener.eventName || listener.eventName === "<unknown>") {
+    return false;
+  }
+
+  // 3. Must not be an excluded benign lifecycle event
+  const canonicalKey = getCanonicalListenerKey(listener);
+  if (isBenignLifecycleTarget(canonicalKey, listener.eventName)) {
+    return false;
+  }
+
+  return true;
+}
+
 export interface ListenerParticipant {
   packageName: string;
   packageVersion?: string;
@@ -70,7 +128,8 @@ export interface ListenerCollisionGroup {
 
 /**
  * Groups listener profiles across packages by their canonical target,
- * tracking participant metadata and filtering only cross-package collisions (2+ distinct packages).
+ * applying false-positive filtering, tracking participant metadata,
+ * and filtering only cross-package collisions (2+ distinct packages).
  */
 export function groupListenerCollisions(
   pkgs: ResolvedPackage[],
@@ -86,6 +145,12 @@ export function groupListenerCollisions(
     const ownerName = pkg.name;
 
     for (const listener of profile.listeners) {
+      // Apply MVP False-Positive Filtering:
+      // Filter out non-globals, dynamic/unknown event names, and benign lifecycle events
+      if (!isEligibleCollisionListener(listener)) {
+        continue;
+      }
+
       const canonicalTarget = getCanonicalListenerKey(listener);
 
       let group = groupsMap.get(canonicalTarget);
@@ -110,14 +175,18 @@ export function groupListenerCollisions(
   const collisions: ListenerCollisionGroup[] = [];
 
   for (const [canonicalTarget, { ownersSet, participants }] of groupsMap.entries()) {
+    // Cross-package collision invariant: must have 2+ distinct package owners
     if (ownersSet.size >= 2) {
       collisions.push({
         canonicalTarget,
-        owners: [...ownersSet],
+        owners: [...ownersSet].sort(),
         participants,
       });
     }
   }
+
+  // Deterministic sorting of collision groups by canonical target
+  collisions.sort((a, b) => a.canonicalTarget.localeCompare(b.canonicalTarget));
 
   return collisions;
 }

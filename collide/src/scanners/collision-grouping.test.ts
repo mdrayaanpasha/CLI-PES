@@ -68,7 +68,7 @@ describe("Stage 9: Cross-Package Listener Collision Grouping", () => {
 
     assert.equal(collisions.length, 1);
     assert.equal(collisions[0].canonicalTarget, "global_window:resize");
-    assert.deepEqual(collisions[0].owners, ["pkg-one", "pkg-two", "pkg-three"]);
+    assert.deepEqual(collisions[0].owners, ["pkg-one", "pkg-three", "pkg-two"]);
     assert.equal(collisions[0].participants.length, 3);
   });
 
@@ -115,7 +115,7 @@ window.addEventListener("resize", fn);
     assert.deepEqual(targets, ["global_process:exit", "global_window:resize"]);
   });
 
-  it("handles mixed supported and unsupported/local targets without false collisions", () => {
+  it("filters out local emitters and avoids false collisions across packages", () => {
     const codeA = `
 const server = createServer();
 server.on("request", fn);
@@ -142,10 +142,8 @@ process.on("request", fn);
 
     const collisions = groupListenerCollisions(pkgs, profiles);
 
-    // Local emitters server-a and server-b share module_emitter:server:request
-    // But proc-pkg registers global_process:request, which does NOT collide with them
-    assert.equal(collisions.length, 1);
-    assert.equal(collisions[0].canonicalTarget, "module_emitter:server:request");
-    assert.deepEqual(collisions[0].owners, ["server-a", "server-b"]);
+    // Local emitters server-a and server-b are filtered out as non-globals,
+    // and proc-pkg is a single package on global_process:request -> 0 collisions
+    assert.equal(collisions.length, 0);
   });
 });
