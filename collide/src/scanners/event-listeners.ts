@@ -1,7 +1,7 @@
 // scanners/event-listeners.ts
 // Scan 3: same profiles as global-state, different bucket (listeners).
 
-import type { ResolvedPackage, Scanner, Severity } from "../core/types";
+import type { Finding, ResolvedPackage, Scanner, Severity } from "../core/types";
 import { getOrCache } from "../cache/db";
 import {
   extractPackageProfile,
@@ -329,6 +329,146 @@ export function classifyListenerSeverity(
   return hasPrepend ? escalateSeverity(baseSeverity) : baseSeverity;
 }
 
+/**
+ * Generates an explainable risk rationale explaining why the collision matters.
+ */
+export function getCollisionRiskRationale(
+  canonicalTarget: string,
+  hasPrepend = false,
+): string {
+  const colonIndex = canonicalTarget.indexOf(":");
+  const receiver = colonIndex !== -1 ? canonicalTarget.substring(0, colonIndex) : "";
+  const eventName = colonIndex !== -1 ? canonicalTarget.substring(colonIndex + 1) : canonicalTarget;
+
+  let rationale = "";
+
+  if (receiver === "global_process") {
+    if (eventName === "uncaughtException" || eventName === "uncaughtExceptionMonitor") {
+      rationale =
+        "Competing uncaught exception handlers can swallow unhandled errors, cause duplicate crash reporting, or prevent graceful process termination.";
+    } else if (eventName === "unhandledRejection") {
+      rationale =
+        "Multiple unhandled rejection handlers can interfere with promise error tracking or lead to uncoordinated process exits.";
+    } else if (eventName === "exit" || eventName === "beforeExit") {
+      rationale =
+        "Multiple process exit handlers can cause race conditions during teardown or fail to complete asynchronous cleanup before termination.";
+    } else if (eventName.startsWith("SIG")) {
+      rationale =
+        "Multiple OS signal listeners can lead to conflicting signal handling, duplicate shutdown routines, or unexpected process termination.";
+    } else if (eventName === "warning") {
+      rationale =
+        "Multiple warning listeners can result in duplicate logging or swallowed process diagnostic warnings.";
+    } else {
+      rationale =
+        `Multiple packages registering listeners on process "${eventName}" can conflict in event handling or state management.`;
+    }
+  } else if (
+    receiver === "global_window" ||
+    receiver === "global_document" ||
+    receiver === "global_globalThis"
+  ) {
+    if (eventName === "error" || eventName === "unhandledrejection" || eventName === "rejectionhandled") {
+      rationale =
+        "Multiple global error handlers can swallow errors or result in duplicate error monitoring telemetry.";
+    } else if (eventName === "message" || eventName === "messageerror") {
+      rationale =
+        "Concurrent window message listeners can intercept cross-frame/worker messages or cause conflicting message handling.";
+    } else if (eventName === "storage") {
+      rationale =
+        "Concurrent storage event listeners across packages can cause duplicate state updates or synchronization conflicts.";
+    } else if (eventName === "beforeunload" || eventName === "unload") {
+      rationale =
+        "Multiple page unload listeners can delay navigation, leak memory, or conflict during page teardown.";
+    } else if (eventName === "resize" || eventName === "scroll") {
+      rationale =
+        "Multiple uncoordinated window viewport listeners can cause performance degradation or layout recalculation thrashing.";
+    } else if (eventName === "popstate" || eventName === "hashchange") {
+      rationale =
+        "Multiple global navigation listeners can cause conflicting routing transitions or inconsistent history state.";
+    } else if (eventName === "visibilitychange" || eventName === "selectionchange") {
+      rationale =
+        "Multiple global document state listeners can cause race conditions in tab activity or selection handling.";
+    } else {
+      rationale =
+        `Multiple packages registering global listeners on "${eventName}" can cause conflicting event handling or unexpected event propagation side-effects.`;
+    }
+  } else {
+    rationale =
+      `Multiple packages registering listeners on "${canonicalTarget}" can interfere with shared resource event handling.`;
+  }
+
+  if (hasPrepend) {
+    rationale +=
+      " Prepend registration is used, attempting to hijack execution order ahead of other registered handlers.";
+  }
+
+  return rationale;
+}
+
+/**
+ * Formats a concise, human-readable finding explanation including participant metadata
+ * and risk rationale without leaking internal AST details.
+ */
+export function formatFindingMessage(group: ListenerCollisionGroup): string {
+  const ownersList = group.owners.join(", ");
+  const count = group.owners.length;
+  const packageLabel = count === 1 ? "1 package" : `${count} packages`;
+
+  const hasPrepend = (group.participants || []).some(
+    (p) => p.listenerMethod === "prependListener" || p.listenerMethod === "prependOnceListener",
+  );
+
+  const rationale = getCollisionRiskRationale(group.canonicalTarget, hasPrepend);
+
+  // Build participant details if available
+  const participantDetails = (group.participants || [])
+    .slice()
+    .sort((a, b) => {
+      const pkgCmp = a.packageName.localeCompare(b.packageName);
+      if (pkgCmp !== 0) return pkgCmp;
+      const modA = a.moduleContext || "";
+      const modB = b.moduleContext || "";
+      const modCmp = modA.localeCompare(modB);
+      if (modCmp !== 0) return modCmp;
+      return (a.sourceLocation?.line || 0) - (b.sourceLocation?.line || 0);
+    })
+    .map((p) => {
+      const pkgTag = p.packageVersion ? `${p.packageName}@${p.packageVersion}` : p.packageName;
+      const loc =
+        p.moduleContext && p.sourceLocation
+          ? `${p.moduleContext}:${p.sourceLocation.line}:${p.sourceLocation.column}`
+          : p.sourceLocation
+          ? `line ${p.sourceLocation.line}:${p.sourceLocation.column}`
+          : p.moduleContext || "";
+
+      if (loc && p.listenerMethod) {
+        return `${pkgTag} (${p.listenerMethod} at ${loc})`;
+      }
+      if (p.listenerMethod) {
+        return `${pkgTag} (${p.listenerMethod})`;
+      }
+      return pkgTag;
+    });
+
+  const uniqueDetails = [...new Set(participantDetails)];
+  const detailsStr = uniqueDetails.length > 0 ? ` [${uniqueDetails.join("; ")}]` : "";
+
+  return `${packageLabel} (${ownersList}) register listeners on "${group.canonicalTarget}"${detailsStr}. ${rationale}`;
+}
+
+/**
+ * Creates a complete shared Finding for a listener collision group.
+ */
+export function createListenerFinding(group: ListenerCollisionGroup): Finding {
+  return {
+    scanner: "event-listeners",
+    severity: classifyListenerSeverity(group),
+    target: group.canonicalTarget,
+    owners: group.owners,
+    message: formatFindingMessage(group),
+  };
+}
+
 export const eventListenerScanner: Scanner = {
   name: "event-listeners",
   scan: async (pkgs) => {
@@ -336,12 +476,7 @@ export const eventListenerScanner: Scanner = {
       pkgs.map((p) => getOrCache(p, extractPackageProfile)),
     );
     const collisions = groupListenerCollisions(pkgs, profiles);
-    return collisions.map((c) => ({
-      scanner: "event-listeners" as const,
-      severity: classifyListenerSeverity(c),
-      target: c.canonicalTarget,
-      owners: c.owners,
-      message: `${c.owners.length} packages register a listener on "${c.canonicalTarget}"`,
-    }));
+    return collisions.map(createListenerFinding);
   },
 };
+
