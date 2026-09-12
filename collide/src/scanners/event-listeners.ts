@@ -1,7 +1,7 @@
 // scanners/event-listeners.ts
 // Scan 3: same profiles as global-state, different bucket (listeners).
 
-import type { ResolvedPackage, Scanner } from "../core/types";
+import type { ResolvedPackage, Scanner, Severity } from "../core/types";
 import { getOrCache } from "../cache/db";
 import {
   extractPackageProfile,
@@ -191,6 +191,144 @@ export function groupListenerCollisions(
   return collisions;
 }
 
+/**
+ * Escalates a severity level by one step (due to prepend listener registration).
+ */
+export function escalateSeverity(severity: Severity): Severity {
+  switch (severity) {
+    case "low":
+      return "medium";
+    case "medium":
+      return "high";
+    case "high":
+    case "critical":
+      return "critical";
+  }
+}
+
+/**
+ * Determines the base severity of a canonical listener collision target
+ * before accounting for registration method behavior (e.g. prepending).
+ */
+export function getBaseListenerSeverity(canonicalTarget: string): Severity {
+  const colonIndex = canonicalTarget.indexOf(":");
+  if (colonIndex === -1) {
+    return "low";
+  }
+
+  const receiver = canonicalTarget.substring(0, colonIndex);
+  const eventName = canonicalTarget.substring(colonIndex + 1);
+
+  if (receiver === "global_process") {
+    // Process crash and unhandled exception handlers -> CRITICAL
+    if (
+      eventName === "uncaughtException" ||
+      eventName === "unhandledRejection" ||
+      eventName === "uncaughtExceptionMonitor"
+    ) {
+      return "critical";
+    }
+
+    // Process termination and OS signal handlers -> HIGH
+    if (
+      eventName === "exit" ||
+      eventName === "beforeExit" ||
+      eventName.startsWith("SIG")
+    ) {
+      return "high";
+    }
+
+    // General diagnostic and process events -> MEDIUM
+    return "medium";
+  }
+
+  if (
+    receiver === "global_window" ||
+    receiver === "global_document" ||
+    receiver === "global_globalThis"
+  ) {
+    // Unhandled browser errors/rejections -> CRITICAL
+    if (
+      eventName === "error" ||
+      eventName === "unhandledrejection" ||
+      eventName === "rejectionhandled"
+    ) {
+      return "critical";
+    }
+
+    // Sensitive communication/storage/lifecycle events -> HIGH
+    if (
+      eventName === "message" ||
+      eventName === "messageerror" ||
+      eventName === "storage" ||
+      eventName === "beforeunload" ||
+      eventName === "unload" ||
+      eventName === "securitypolicyviolation"
+    ) {
+      return "high";
+    }
+
+    // Navigation and geometry/window state events -> MEDIUM
+    if (
+      eventName === "resize" ||
+      eventName === "scroll" ||
+      eventName === "popstate" ||
+      eventName === "hashchange" ||
+      eventName === "pagehide" ||
+      eventName === "pageshow" ||
+      eventName === "visibilitychange" ||
+      eventName === "selectionchange" ||
+      eventName === "fullscreenchange" ||
+      eventName === "fullscreenerror" ||
+      eventName === "copy" ||
+      eventName === "cut" ||
+      eventName === "paste"
+    ) {
+      return "medium";
+    }
+
+    // Low-risk standard UI interaction events -> LOW
+    return "low";
+  }
+
+  return "low";
+}
+
+/**
+ * Classifies the final MVP severity of a listener collision.
+ * Evaluates the canonical target and checks if any participant uses
+ * prependListener / prependOnceListener to escalate severity.
+ */
+export function classifyListenerSeverity(
+  targetOrGroup: string | ListenerCollisionGroup,
+  participantsOrMethods?: (ListenerParticipant | string)[],
+): Severity {
+  let canonicalTarget: string;
+  let methods: string[] = [];
+
+  if (typeof targetOrGroup === "object" && targetOrGroup !== null) {
+    canonicalTarget = targetOrGroup.canonicalTarget;
+    if (Array.isArray(targetOrGroup.participants)) {
+      methods = targetOrGroup.participants.map((p) => p.listenerMethod);
+    }
+  } else {
+    canonicalTarget = targetOrGroup;
+    if (Array.isArray(participantsOrMethods)) {
+      methods = participantsOrMethods.map((item) =>
+        typeof item === "string" ? item : item.listenerMethod,
+      );
+    }
+  }
+
+  const baseSeverity = getBaseListenerSeverity(canonicalTarget);
+
+  const hasPrepend = methods.some(
+    (m) => m === "prependListener" || m === "prependOnceListener",
+  );
+
+  return hasPrepend ? escalateSeverity(baseSeverity) : baseSeverity;
+}
+
 export const eventListenerScanner: Scanner = {
   name: "event-listeners",
   scan: async (pkgs) => {
@@ -200,7 +338,7 @@ export const eventListenerScanner: Scanner = {
     const collisions = groupListenerCollisions(pkgs, profiles);
     return collisions.map((c) => ({
       scanner: "event-listeners" as const,
-      severity: "medium" as const,
+      severity: classifyListenerSeverity(c),
       target: c.canonicalTarget,
       owners: c.owners,
       message: `${c.owners.length} packages register a listener on "${c.canonicalTarget}"`,

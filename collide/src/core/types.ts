@@ -13,7 +13,7 @@ export interface Scanner {
   scan(resolvedPackages: ResolvedPackage[]): Promise<Finding[]>;
 }
 
-export type Severity = "low" | "medium" | "high";
+export type Severity = "low" | "medium" | "high" | "critical";
 
 export interface Finding {
   scanner: string;   // "global-state" | "event-listeners" | "osv" | "version-conflict"

@@ -97,11 +97,18 @@ process.on("exit", () => {});
     const targets = listenerFindings.map((f) => f.target).sort();
     assert.deepEqual(targets, ["global_process:exit", "global_window:resize"]);
 
-    for (const finding of listenerFindings) {
-      assert.equal(finding.scanner, "event-listeners");
-      assert.equal(finding.severity, "medium");
-      assert.deepEqual(finding.owners.sort(), ["pkg-1", "pkg-2"]);
-    }
+    const exitFinding = listenerFindings.find((f) => f.target === "global_process:exit");
+    const resizeFinding = listenerFindings.find((f) => f.target === "global_window:resize");
+
+    assert.ok(exitFinding);
+    assert.equal(exitFinding.scanner, "event-listeners");
+    assert.equal(exitFinding.severity, "high");
+    assert.deepEqual(exitFinding.owners.sort(), ["pkg-1", "pkg-2"]);
+
+    assert.ok(resizeFinding);
+    assert.equal(resizeFinding.scanner, "event-listeners");
+    assert.equal(resizeFinding.severity, "medium");
+    assert.deepEqual(resizeFinding.owners.sort(), ["pkg-1", "pkg-2"]);
   });
 
   it("preserves individual package profile isolation in cache", async () => {
