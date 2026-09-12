@@ -1,9 +1,13 @@
 // scanners/event-listeners.ts
 // Scan 3: same profiles as global-state, different bucket (listeners).
 
-import type { Scanner } from "../core/types";
+import type { ResolvedPackage, Scanner } from "../core/types";
 import { getOrCache } from "../cache/db";
-import { extractPackageProfile, ListenerRegistration } from "./shared-ast-extractor";
+import {
+  extractPackageProfile,
+  ListenerRegistration,
+  PackageProfile,
+} from "./shared-ast-extractor";
 import { groupByTarget } from "./util";
 
 /**
@@ -48,20 +52,89 @@ export function getCanonicalListenerKey(listener: ListenerRegistration): string 
 
 export const getListenerId = getCanonicalListenerKey;
 
+export interface ListenerParticipant {
+  packageName: string;
+  packageVersion?: string;
+  canonicalTarget: string;
+  listenerMethod: string;
+  eventName: string;
+  sourceLocation?: { line: number; column: number };
+  moduleContext?: string;
+}
+
+export interface ListenerCollisionGroup {
+  canonicalTarget: string;
+  owners: string[];
+  participants: ListenerParticipant[];
+}
+
+/**
+ * Groups listener profiles across packages by their canonical target,
+ * tracking participant metadata and filtering only cross-package collisions (2+ distinct packages).
+ */
+export function groupListenerCollisions(
+  pkgs: ResolvedPackage[],
+  profiles: PackageProfile[],
+): ListenerCollisionGroup[] {
+  const groupsMap = new Map<
+    string,
+    { ownersSet: Set<string>; participants: ListenerParticipant[] }
+  >();
+
+  profiles.forEach((profile, i) => {
+    const pkg = pkgs[i];
+    const ownerName = pkg.name;
+
+    for (const listener of profile.listeners) {
+      const canonicalTarget = getCanonicalListenerKey(listener);
+
+      let group = groupsMap.get(canonicalTarget);
+      if (!group) {
+        group = { ownersSet: new Set(), participants: [] };
+        groupsMap.set(canonicalTarget, group);
+      }
+
+      group.ownersSet.add(ownerName);
+      group.participants.push({
+        packageName: ownerName,
+        packageVersion: pkg.version,
+        canonicalTarget,
+        listenerMethod: listener.listenerMethod,
+        eventName: listener.eventName,
+        sourceLocation: listener.sourceLocation,
+        moduleContext: listener.moduleContext || pkg.sourcePath,
+      });
+    }
+  });
+
+  const collisions: ListenerCollisionGroup[] = [];
+
+  for (const [canonicalTarget, { ownersSet, participants }] of groupsMap.entries()) {
+    if (ownersSet.size >= 2) {
+      collisions.push({
+        canonicalTarget,
+        owners: [...ownersSet],
+        participants,
+      });
+    }
+  }
+
+  return collisions;
+}
+
 export const eventListenerScanner: Scanner = {
   name: "event-listeners",
   scan: async (pkgs) => {
     const profiles = await Promise.all(
       pkgs.map((p) => getOrCache(p, extractPackageProfile)),
     );
-    return groupByTarget(pkgs, profiles, "listeners", getListenerId)
-      .filter((g) => g.owners.length >= 2)
-      .map((g) => ({
-        scanner: "event-listeners" as const,
-        severity: "medium" as const,
-        target: g.target,
-        owners: g.owners,
-        message: `${g.owners.length} packages register a listener on "${g.target}"`,
-      }));
+    const collisions = groupListenerCollisions(pkgs, profiles);
+    return collisions.map((c) => ({
+      scanner: "event-listeners" as const,
+      severity: "medium" as const,
+      target: c.canonicalTarget,
+      owners: c.owners,
+      message: `${c.owners.length} packages register a listener on "${c.canonicalTarget}"`,
+    }));
   },
 };
