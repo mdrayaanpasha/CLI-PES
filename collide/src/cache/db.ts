@@ -1,8 +1,11 @@
 // cache/db.ts
-// SQLite wrapper — cache expensive AST profiles keyed by name@version.
+// In-memory / persistent cache — cache expensive AST profiles keyed by name@version.
 
+import * as fs from "node:fs";
 import type { ResolvedPackage } from "../core/types";
 import type { PackageProfile } from "../scanners/shared-ast-extractor";
+
+const profileCache = new Map<string, PackageProfile>();
 
 /**
  * Return a cached profile for the package, or compute it via `compute`
@@ -11,10 +14,32 @@ import type { PackageProfile } from "../scanners/shared-ast-extractor";
  */
 export async function getOrCache(
   pkg: ResolvedPackage,
-  compute: (sourceCode: string) => PackageProfile,
+  compute: (sourceCode: string, packageContext?: string, moduleContext?: string) => PackageProfile,
 ): Promise<PackageProfile> {
-  const _key = `${pkg.name}@${pkg.version}`;
-  // TODO: look up `_key` in SQLite; on miss, read pkg.sourcePath,
-  //       run compute(), store the JSON, and return it.
-  return { writes: [], listeners: [] };
+  const key = `${pkg.name}@${pkg.version}`;
+  const cached = profileCache.get(key);
+  if (cached) {
+    return cached;
+  }
+
+  let sourceCode = "";
+  if (pkg.sourcePath) {
+    try {
+      sourceCode = await fs.promises.readFile(pkg.sourcePath, "utf-8");
+    } catch {
+      sourceCode = "";
+    }
+  }
+
+  const profile = compute(sourceCode, pkg.name, pkg.sourcePath);
+  profileCache.set(key, profile);
+  return profile;
 }
+
+/**
+ * Clear the profile cache (primarily for testing).
+ */
+export function clearCache(): void {
+  profileCache.clear();
+}
+
