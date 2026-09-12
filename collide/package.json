@@ -12,7 +12,7 @@
     "start": "node dist/cli.js",
     "sandbox": "tsx test/build-sandbox.ts test/.sandbox",
     "vuln-lab": "tsx test/build-vuln-lab.ts test/.vuln-lab",
-    "demo": "tsx test/build-vuln-lab.ts test/.vuln-lab && FORCE_COLOR=1 tsx src/cli.ts scan test/.vuln-lab/package-lock.json",
+    "demo": "tsx test/build-vuln-lab.ts test/.vuln-lab && cross-env FORCE_COLOR=1 tsx src/cli.ts scan test/.vuln-lab/package-lock.json",
     "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
@@ -21,10 +21,11 @@
     "better-sqlite3": "^11.0.0"
   },
   "devDependencies": {
-    "tsx": "^4.0.0",
-    "typescript": "^5.4.0",
-    "@types/node": "^20.0.0",
     "@types/babel__traverse": "^7.20.0",
-    "@types/better-sqlite3": "^7.6.0"
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^20.0.0",
+    "cross-env": "^10.1.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
   }
 }
