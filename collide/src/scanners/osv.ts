@@ -154,3 +154,6 @@ export const goOsvScanner: Scanner = createOsvScanner({ ecosystem: "Go" });
 
 // PyPI-ecosystem instance for Python (pip) manifests.
 export const pyOsvScanner: Scanner = createOsvScanner({ ecosystem: "PyPI" });
+
+// crates.io-ecosystem instance for Rust (Cargo) manifests.
+export const rustOsvScanner: Scanner = createOsvScanner({ ecosystem: "crates.io" });
