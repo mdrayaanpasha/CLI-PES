@@ -59,7 +59,7 @@ process.on("exit", () => {});
     // Second call (e.g. from Scanner 3 for the same package)
     const profile2 = await getOrCache(pkg, trackedCompute);
     assert.equal(computeCount, 1); // Not called again!
-    assert.strictEqual(profile1, profile2); // Exact same cached instance
+    assert.deepEqual(profile1, profile2); // Exact restored structure from SQLite
   });
 
   it("allows Scanner 2 and Scanner 3 to run concurrently on shared cached profiles", async () => {
