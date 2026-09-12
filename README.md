@@ -1,5 +1,7 @@
-
 # dep-collide
+
+
+<img width="519" height="170" alt="Screenshot 2026-09-12 at 9 58 13 PM" src="https://github.com/user-attachments/assets/0937e2c1-c269-4c48-b941-b41241be90d1" />
 
 ### Dependency collision and vulnerability scanner for modern software projects
 
