@@ -3,8 +3,18 @@
 
 import type { Scanner } from "../core/types";
 import { getOrCache } from "../cache/db";
-import { extractPackageProfile } from "./shared-ast-extractor";
+import { extractPackageProfile, ListenerRegistration } from "./shared-ast-extractor";
 import { groupByTarget } from "./util";
+
+/**
+ * Normalizes a ListenerRegistration into a string ID for grouping collisions.
+ */
+export function getListenerId(listener: ListenerRegistration): string {
+  const targetName = listener.targetIdentity.name
+    ? `${listener.targetIdentity.type}:${listener.targetIdentity.name}`
+    : listener.targetIdentity.type;
+  return `${targetName}:${listener.eventName}`;
+}
 
 export const eventListenerScanner: Scanner = {
   name: "event-listeners",
@@ -12,7 +22,7 @@ export const eventListenerScanner: Scanner = {
     const profiles = await Promise.all(
       pkgs.map((p) => getOrCache(p, extractPackageProfile)),
     );
-    return groupByTarget(pkgs, profiles, "listeners")
+    return groupByTarget(pkgs, profiles, "listeners", getListenerId)
       .filter((g) => g.owners.length >= 2)
       .map((g) => ({
         scanner: "event-listeners" as const,

@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
-    "test": "echo \"no tests yet\" && exit 0"
+    "test": "tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {},
   "devDependencies": {

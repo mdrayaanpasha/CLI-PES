@@ -24,15 +24,18 @@ export interface TargetGroup {
  * Invert profiles into groups keyed by target (a write or a listener),
  * where `owners` is the set of packages touching that target.
  */
-export function groupByTarget(
+export function groupByTarget<K extends keyof PackageProfile>(
   pkgs: ResolvedPackage[],
   profiles: PackageProfile[],
-  bucket: keyof PackageProfile,
+  bucket: K,
+  getTargetId: (item: PackageProfile[K][number]) => string = String,
 ): TargetGroup[] {
   const map = new Map<string, Set<string>>();
   profiles.forEach((profile, i) => {
     const owner = pkgs[i].name;
-    for (const target of profile[bucket]) {
+    const items = profile[bucket];
+    for (const item of items) {
+      const target = getTargetId(item);
       (map.get(target) ?? map.set(target, new Set()).get(target)!).add(owner);
     }
   });
