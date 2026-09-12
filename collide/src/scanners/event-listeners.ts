@@ -7,14 +7,46 @@ import { extractPackageProfile, ListenerRegistration } from "./shared-ast-extrac
 import { groupByTarget } from "./util";
 
 /**
- * Normalizes a ListenerRegistration into a string ID for grouping collisions.
+ * Canonicalizes a ListenerRegistration into a single deterministic collision key.
+ * e.g. "global_process:uncaughtException" or "global_window:resize".
  */
-export function getListenerId(listener: ListenerRegistration): string {
+export function getCanonicalListenerKey(listener: ListenerRegistration): string {
+  if (listener.receiverScope === "global") {
+    if (
+      listener.targetIdentity.name === "process" ||
+      (listener.targetIdentity.type === "emitter" && listener.targetIdentity.name === "process")
+    ) {
+      return `global_process:${listener.eventName}`;
+    }
+    if (listener.targetIdentity.type === "window") {
+      return `global_window:${listener.eventName}`;
+    }
+    if (listener.targetIdentity.type === "document") {
+      return `global_document:${listener.eventName}`;
+    }
+    if (listener.targetIdentity.name === "globalThis") {
+      return `global_globalThis:${listener.eventName}`;
+    }
+    return `global_${listener.targetIdentity.type}:${listener.eventName}`;
+  }
+
+  if (listener.receiverScope === "dom") {
+    const name = listener.targetIdentity.name ? `:${listener.targetIdentity.name}` : "";
+    return `dom_${listener.targetIdentity.type}${name}:${listener.eventName}`;
+  }
+
+  if (listener.receiverScope === "module") {
+    const name = listener.targetIdentity.name ? `:${listener.targetIdentity.name}` : "";
+    return `module_${listener.targetIdentity.type}${name}:${listener.eventName}`;
+  }
+
   const targetName = listener.targetIdentity.name
     ? `${listener.targetIdentity.type}:${listener.targetIdentity.name}`
     : listener.targetIdentity.type;
   return `${targetName}:${listener.eventName}`;
 }
+
+export const getListenerId = getCanonicalListenerKey;
 
 export const eventListenerScanner: Scanner = {
   name: "event-listeners",

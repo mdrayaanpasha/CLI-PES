@@ -91,11 +91,11 @@ process.on("exit", () => {});
     // Scanner 2: global-state findings
     assert.ok(Array.isArray(globalFindings));
 
-    // Scanner 3: event-listeners findings should detect collisions on window:resize and emitter:process:exit
+    // Scanner 3: event-listeners findings should detect collisions on global_window:resize and global_process:exit
     assert.equal(listenerFindings.length, 2);
 
     const targets = listenerFindings.map((f) => f.target).sort();
-    assert.deepEqual(targets, ["emitter:process:exit", "window:resize"]);
+    assert.deepEqual(targets, ["global_process:exit", "global_window:resize"]);
 
     for (const finding of listenerFindings) {
       assert.equal(finding.scanner, "event-listeners");
